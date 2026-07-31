@@ -4,7 +4,7 @@ game 'gta5'
 name 'dex_chat'
 author 'Dex Development'
 description 'Custom FiveM chat replacement with secure job and gang banners'
-version '1.0.0'
+version '1.0.1'
 
 provide 'chat'
 
