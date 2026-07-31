@@ -4,6 +4,20 @@ local hideState = tonumber(GetResourceKvpString('dex_chat:hideState')) or 0
 local suggestions = {}
 local modes = {}
 
+local function getClientTimestamp()
+    if type(GetCloudTimeAsInt) == 'function' then
+        local timestamp = GetCloudTimeAsInt()
+
+        if type(timestamp) == 'number' and timestamp > 0 then
+            return timestamp
+        end
+    end
+
+    -- A nil timestamp is intentional. The NUI will safely use the local
+    -- browser time instead of relying on the unavailable client-side os API.
+    return nil
+end
+
 local function send(action, data)
     SendNUIMessage({ action = action, data = data })
 end
@@ -25,7 +39,7 @@ local function normalizeCompatibilityMessage(message)
             schema = DexChat.MessageSchema,
             kind = DexChat.MessageKind.CHAT,
             text = message,
-            timestamp = os.time(),
+            timestamp = getClientTimestamp(),
             duration = Config.Messages.DefaultDuration,
             sender = { name = '' },
             presentation = { variant = 'normal' }
@@ -43,7 +57,7 @@ local function normalizeCompatibilityMessage(message)
         schema = DexChat.MessageSchema,
         kind = DexChat.MessageKind.CHAT,
         text = text,
-        timestamp = os.time(),
+        timestamp = getClientTimestamp(),
         duration = Config.Messages.DefaultDuration,
         channel = message.mode,
         sender = { name = author },
@@ -72,7 +86,7 @@ RegisterNetEvent('__cfx_internal:serverPrint', function(message)
         schema = DexChat.MessageSchema,
         kind = DexChat.MessageKind.PRINT,
         text = message,
-        timestamp = os.time(),
+        timestamp = getClientTimestamp(),
         duration = Config.Messages.DefaultDuration,
         sender = { name = 'SERVER' },
         presentation = { variant = 'system' }
@@ -84,7 +98,7 @@ RegisterNetEvent('dex_chat:notify', function(data)
         schema = DexChat.MessageSchema,
         kind = DexChat.MessageKind.SYSTEM,
         text = tostring(data and data.message or ''),
-        timestamp = os.time(),
+        timestamp = getClientTimestamp(),
         duration = 6000,
         sender = { name = data and data.type == 'error' and 'ERROR' or 'INFO' },
         presentation = { variant = data and data.type == 'error' and 'error' or 'system' }
