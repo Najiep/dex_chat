@@ -13,44 +13,65 @@ local function detectFramework()
         return Config.Framework
     end
 
+    local detected = {}
     for _, name in ipairs(Config.FrameworkOptions.DetectionPriority or {}) do
-        if name == 'esx' and resourceStarted('es_extended') then return 'esx' end
-        if name == 'qbox' and resourceStarted('qbx_core') then return 'qbox' end
-        if name == 'qbcore' and resourceStarted('qb-core') then return 'qbcore' end
+        if name == 'esx' and resourceStarted('es_extended') then detected[#detected + 1] = 'esx' end
+        if name == 'qbox' and resourceStarted('qbx_core') then detected[#detected + 1] = 'qbox' end
+        if name == 'qbcore' and resourceStarted('qb-core') then detected[#detected + 1] = 'qbcore' end
     end
 
-    return 'standalone'
+    if #detected > 1 then
+        print(('[dex_chat] Warning: multiple frameworks detected (%s). Using %s by priority.'):format(
+            table.concat(detected, ', '), detected[1]
+        ))
+    end
+
+    return detected[1] or 'standalone'
 end
 
-local function normalizeGrade(grade)
-    if type(grade) == 'number' then
-        return grade, tostring(grade), false
-    end
+local function normalizeGrade(data)
+    local gradeData = type(data.grade) == 'table' and data.grade or nil
+    local level = tonumber(
+        gradeData and (gradeData.level or gradeData.grade or gradeData.id)
+        or data.grade
+        or data.grade_level
+    ) or 0
+    local label = gradeData and (gradeData.name or gradeData.label)
+        or data.grade_label
+        or data.grade_name
+        or tostring(level)
+    local boss = gradeData and (gradeData.isboss == true or gradeData.isBoss == true)
+        or data.isboss == true
+        or data.isBoss == true
+        or data.grade_name == 'boss'
 
-    if type(grade) ~= 'table' then
-        return 0, '0', false
-    end
-
-    local level = tonumber(grade.level or grade.grade or grade.id) or 0
-    local label = grade.name or grade.label or tostring(level)
-    local boss = grade.isboss == true or grade.isBoss == true
-    return level, tostring(label), boss
+    return level, tostring(label), boss == true
 end
 
 local function normalizeOrganization(data, fallbackDuty)
     if type(data) ~= 'table' or not data.name then
-        return { name = 'none', label = 'None', grade = 0, gradeLabel = '0', onDuty = false, isBoss = false }
+        return {
+            name = 'none',
+            label = 'None',
+            grade = 0,
+            gradeLabel = '0',
+            onDuty = false,
+            isBoss = false
+        }
     end
 
-    local grade, gradeLabel, isBoss = normalizeGrade(data.grade)
+    local grade, gradeLabel, isBoss = normalizeGrade(data)
+    local duty = data.onduty
+    if duty == nil then duty = data.onDuty end
+    if duty == nil then duty = fallbackDuty end
 
     return {
         name = tostring(data.name):lower(),
         label = tostring(data.label or data.name),
         grade = grade,
         gradeLabel = gradeLabel,
-        onDuty = data.onduty == true or data.onDuty == true or fallbackDuty == true,
-        isBoss = isBoss or data.isboss == true or data.isBoss == true
+        onDuty = duty == true,
+        isBoss = isBoss
     }
 end
 
@@ -61,12 +82,12 @@ local function initialize()
         local ok, core = pcall(function()
             return exports['es_extended']:getSharedObject()
         end)
-        if ok then ESX = core else framework = 'standalone' end
+        if ok and core then ESX = core else framework = 'standalone' end
     elseif framework == 'qbcore' then
         local ok, core = pcall(function()
             return exports['qb-core']:GetCoreObject()
         end)
-        if ok then QBCore = core else framework = 'standalone' end
+        if ok and core then QBCore = core else framework = 'standalone' end
     elseif framework == 'qbox' and not resourceStarted('qbx_core') then
         framework = 'standalone'
     end
@@ -83,10 +104,27 @@ end
 function Bridge.GetIdentifier(source)
     if framework == 'esx' and ESX then
         local player = ESX.GetPlayerFromId(source)
-        return player and (player.identifier or (player.getIdentifier and player.getIdentifier())) or nil
+        if player then
+            if player.getIdentifier then
+                local ok, identifier = pcall(player.getIdentifier, player)
+                if ok and identifier then return identifier end
+            end
+            if player.identifier then return player.identifier end
+        end
+    elseif framework == 'qbox' then
+        local ok, player = pcall(function() return exports.qbx_core:GetPlayer(source) end)
+        local data = ok and player and player.PlayerData
+        if data then return data.citizenid or data.license end
+    elseif framework == 'qbcore' and QBCore then
+        local player = QBCore.Functions.GetPlayer(source)
+        local data = player and player.PlayerData
+        if data then return data.citizenid or data.license end
     end
 
     local identifiers = GetPlayerIdentifiers(source)
+    for _, identifier in ipairs(identifiers or {}) do
+        if identifier:sub(1, 8) == 'license:' then return identifier end
+    end
     return identifiers and identifiers[1] or nil
 end
 
@@ -102,16 +140,17 @@ function Bridge.GetCharacterName(source)
         end
     elseif framework == 'qbox' then
         local ok, player = pcall(function() return exports.qbx_core:GetPlayer(source) end)
-        local data = ok and player and player.PlayerData
-        local charinfo = data and data.charinfo
+        local charinfo = ok and player and player.PlayerData and player.PlayerData.charinfo
         if charinfo then
-            return (('%s %s'):format(charinfo.firstname or '', charinfo.lastname or '')):match('^%s*(.-)%s*$')
+            local name = ('%s %s'):format(charinfo.firstname or '', charinfo.lastname or '')
+            return name:match('^%s*(.-)%s*$')
         end
     elseif framework == 'qbcore' and QBCore then
         local player = QBCore.Functions.GetPlayer(source)
         local charinfo = player and player.PlayerData and player.PlayerData.charinfo
         if charinfo then
-            return (('%s %s'):format(charinfo.firstname or '', charinfo.lastname or '')):match('^%s*(.-)%s*$')
+            local name = ('%s %s'):format(charinfo.firstname or '', charinfo.lastname or '')
+            return name:match('^%s*(.-)%s*$')
         end
     end
 
@@ -121,7 +160,9 @@ end
 function Bridge.GetJob(source)
     if framework == 'esx' and ESX then
         local player = ESX.GetPlayerFromId(source)
-        return normalizeOrganization(player and (player.getJob and player.getJob() or player.job), true)
+        local job = player and (player.getJob and player.getJob() or player.job)
+        local fallback = Config.FrameworkOptions.ESX.AssumeOnDutyWhenUnavailable == true
+        return normalizeOrganization(job, fallback)
     elseif framework == 'qbox' then
         local ok, player = pcall(function() return exports.qbx_core:GetPlayer(source) end)
         return normalizeOrganization(ok and player and player.PlayerData and player.PlayerData.job)
@@ -160,7 +201,7 @@ function Bridge.GetGang(source)
             if ok then gang = value end
         end
 
-        return normalizeOrganization(gang)
+        return normalizeOrganization(gang, true)
     elseif framework == 'qbox' then
         local ok, player = pcall(function() return exports.qbx_core:GetPlayer(source) end)
         return normalizeOrganization(ok and player and player.PlayerData and player.PlayerData.gang)
@@ -182,6 +223,45 @@ function Bridge.GetPlayer(source)
         job = Bridge.GetJob(source),
         gang = Bridge.GetGang(source)
     }
+end
+
+function Bridge.RemoveMoney(source, amount, reason)
+    amount = math.max(0, math.floor(tonumber(amount) or 0))
+    if amount == 0 then return true end
+
+    if framework == 'esx' and ESX then
+        local player = ESX.GetPlayerFromId(source)
+        if not player then return false end
+        local account = Config.FrameworkOptions.ESX.AdvertisementAccount or 'money'
+
+        if account == 'money' and player.getMoney and player.removeMoney then
+            if (tonumber(player.getMoney()) or 0) < amount then return false end
+            player.removeMoney(amount, reason or 'dex_chat')
+            return true
+        end
+
+        if player.getAccount and player.removeAccountMoney then
+            local accountData = player.getAccount(account)
+            if not accountData or (tonumber(accountData.money) or 0) < amount then return false end
+            player.removeAccountMoney(account, amount, reason or 'dex_chat')
+            return true
+        end
+    elseif framework == 'qbox' then
+        local account = Config.FrameworkOptions.Qbox.AdvertisementAccount or 'cash'
+        local ok, result = pcall(function()
+            return exports.qbx_core:RemoveMoney(source, account, amount, reason or 'dex_chat')
+        end)
+        return ok and result ~= false
+    elseif framework == 'qbcore' and QBCore then
+        local player = QBCore.Functions.GetPlayer(source)
+        local account = Config.FrameworkOptions.QBCore.AdvertisementAccount or 'cash'
+        if not player or not player.Functions then return false end
+        local balance = player.PlayerData and player.PlayerData.money and player.PlayerData.money[account] or 0
+        if (tonumber(balance) or 0) < amount then return false end
+        return player.Functions.RemoveMoney(account, amount, reason or 'dex_chat') ~= false
+    end
+
+    return framework == 'standalone'
 end
 
 function Bridge.Notify(source, message, messageType)
