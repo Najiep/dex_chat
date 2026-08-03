@@ -37,3 +37,34 @@ end
 function DexChat.IsValidHexColor(value)
     return type(value) == 'string' and value:match('^#%x%x%x%x%x%x$') ~= nil
 end
+
+function DexChat.Clamp(value, minimum, maximum)
+    value = tonumber(value) or minimum
+    if value < minimum then return minimum end
+    if value > maximum then return maximum end
+    return value
+end
+
+function DexChat.EscapePattern(value)
+    return tostring(value):gsub('([^%w])', '%%%1')
+end
+
+function DexChat.NormalizeCommand(value)
+    value = tostring(value or ''):lower():gsub('^/', '')
+    if not value:match('^[%w_%-]+$') then return nil end
+    return value
+end
+
+function DexChat.ApplyTemplate(template, values)
+    local output = tostring(template or '{message}')
+    for key, value in pairs(values or {}) do
+        output = output:gsub('{' .. key .. '}', tostring(value))
+    end
+    return output
+end
+
+function DexChat.CountTable(input)
+    local count = 0
+    for _ in pairs(input or {}) do count = count + 1 end
+    return count
+end
