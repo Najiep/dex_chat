@@ -38,5 +38,6 @@ files {
     'web/dist/index.html',
     'web/dist/style.css',
     'web/dist/app.js',
+    'web/dist/settings-bridge.js',
     'web/dist/images/**/*'
 }
