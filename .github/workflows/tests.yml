@@ -15,6 +15,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Lua 5.4
         run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - name: Parse Lua files
+        run: |
+          find bridge client config locales server shared tests -name '*.lua' -print0 \
+            | xargs -0 -n1 luac5.4 -p
+      - name: Check NUI JavaScript syntax
+        run: node --check web/dist/app.js
       - name: Run sanitizer tests
         run: lua5.4 tests/lua/sanitizer_spec.lua
       - name: Run configuration tests
