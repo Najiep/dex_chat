@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dex Chat</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main id="chat" class="chat" aria-live="polite">
+    <section id="messages" class="messages"></section>
+    <section id="composer" class="composer hidden">
+      <div id="modeBadge" class="mode-badge hidden"></div>
+      <input id="input" maxlength="250" autocomplete="off" spellcheck="false" placeholder="Type a message or /command" />
+      <div id="suggestions" class="suggestions hidden"></div>
+    </section>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
