@@ -3,8 +3,8 @@ game 'gta5'
 
 name 'dex_chat'
 author 'Dex Development'
-description 'Custom FiveM chat replacement with secure job and gang banners'
-version '1.0.1'
+description 'Modular, secure and configurable FiveM chat replacement'
+version '2.0.0'
 
 provide 'chat'
 
@@ -12,6 +12,8 @@ ui_page 'web/dist/index.html'
 
 shared_scripts {
     'config/shared.lua',
+    'config/themes.lua',
+    'config/channels.lua',
     'config/organizations.lua',
     'config/security.lua',
     'config/logging.lua',
@@ -23,7 +25,8 @@ shared_scripts {
 }
 
 client_scripts {
-    'client/main.lua'
+    'client/main.lua',
+    'client/settings_bridge.lua'
 }
 
 server_scripts {
@@ -35,5 +38,6 @@ files {
     'web/dist/index.html',
     'web/dist/style.css',
     'web/dist/app.js',
+    'web/dist/settings-bridge.js',
     'web/dist/images/**/*'
 }
