@@ -9,7 +9,14 @@ Config.Security = {
         restart = true,
         refresh = true,
         exec = true,
-        rcon = true
+        rcon = true,
+        clear = true,
+        clearall = true,
+        chatmute = true,
+        chatunmute = true,
+        togglechat = true,
+        chatsettings = true,
+        dexchat_open = true
     },
 
     MaxRawBytes = 1024,
