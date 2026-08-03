@@ -1,0 +1,21 @@
+name: tests
+
+on:
+  push:
+    branches: [main, 'agent/**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lua:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.4
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - name: Run sanitizer tests
+        run: lua5.4 tests/lua/sanitizer_spec.lua
+      - name: Run configuration tests
+        run: lua5.4 tests/lua/config_spec.lua
