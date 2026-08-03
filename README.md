@@ -1,52 +1,97 @@
-# dex_chat
+# dex_chat v2
 
-A secure, server-authoritative replacement for the default Cfx.re `chat` resource. It adds configurable job and gang announcement banners while preserving commonly used stock chat events and exports.
+A secure, server-authoritative and highly configurable replacement for the default Cfx.re `chat` resource.
 
-## Included in v1.0
+`dex_chat` keeps the standard FiveM chat events/exports while adding premium-style channels, themes, organization announcements, private messages, moderation, routing-bucket isolation, per-player UI settings, typing indicators and roleplay 3D text.
 
-- Fullscreen NUI chat with command suggestions and message history.
-- Organization-specific commands such as `/ballas`, `/vagos`, `/police`, `/ambulance`, and `/mechanic`.
-- Server-side membership, grade, boss, and duty validation.
-- ESX Legacy, Qbox, QBCore, and standalone bridge detection.
-- ESX gang provider modes including `job2`, metadata, and external export.
-- Routing-bucket isolation and optional proximity routing.
-- Per-player and per-organization cooldowns with temporary anti-spam mutes.
-- Safe DOM rendering without raw HTML injection.
-- Compatibility events/exports for `chat:addMessage`, suggestions, templates, modes, hooks, clear, and deprecated `chatMessage`.
-- Optional Discord logging.
+## Highlights
+
+- Full replacement through `provide 'chat'`.
+- ESX Legacy, Qbox, QBCore and standalone bridges.
+- LOCAL, OOC, ME, DO, TRY, advertisement, staff, job and gang channels.
+- `/pm`, `/reply`, staff mute/unmute and automatic anti-spam mutes.
+- Configurable organization banners for jobs and gangs.
+- Routing-bucket and proximity-aware server-side recipient resolution.
+- Configurable themes, channel colors, compact mode, opacity, scale, blur and reduced motion.
+- Command autocomplete, quick-channel tabs, message history and character counter.
+- Safe DOM rendering with no raw HTML execution.
+- Burst, duplicate, cooldown, URL, mention and word-filter controls.
+- Queued Discord logging to avoid webhook bursts.
+- Optional server advertisements with framework money removal.
+- Typing indicators and `/me`, `/do`, `/try` floating 3D text.
+- Automated Lua configuration and sanitizer tests.
 
 ## Installation
 
-1. Put the folder in your server resources as `dex_chat`.
-2. Stop/remove the stock `[gameplay]/chat` resource from your startup list.
-3. Add `ensure dex_chat` before resources that depend on chat.
-4. Keep `provide 'chat'` in `fxmanifest.lua`.
-5. Configure framework and organizations under `config/`.
-6. Restart the server and test in a staging environment first.
+1. Put the resource in your server resources folder as `dex_chat`.
+2. Stop or remove the stock `[gameplay]/chat` resource.
+3. Add `ensure dex_chat` before resources that use chat exports/events.
+4. Do not start the stock `chat` resource and `dex_chat` together.
+5. Configure the files under `config/`.
+6. Add the ACE permissions you need.
+7. Restart the server and test on staging first.
 
-Do not intentionally start both the stock `chat` resource and `dex_chat` together.
+```cfg
+ensure dex_chat
 
-## ESX gang setup
+add_ace group.admin dex_chat.staff allow
+add_ace group.admin dex_chat.clearall allow
+add_ace group.admin dex_chat.mute allow
+add_ace group.admin dex_chat.cooldown.bypass allow
+add_ace group.admin dex_chat.filter.bypass allow
+add_ace group.admin dex_chat.crossbucket allow
+```
 
-ESX has no universal gang schema. Configure `Config.FrameworkOptions.ESX.GangProvider`:
+## Default commands
 
-- `job2`: reads a secondary job named `job2`.
-- `job`: treats the primary ESX job as the gang.
-- `metadata`: reads a metadata key.
-- `export`: calls your gang resource export.
-- `disabled`: disables trusted ESX gang membership.
+| Command | Purpose |
+| --- | --- |
+| `T` | Open chat |
+| `/toggleChat` | Cycle auto-show, always-show and hidden states |
+| `/chatsettings` or `F7` | Open personal chat settings |
+| `/ooc` | OOC channel |
+| `/me` | Roleplay action with optional 3D text |
+| `/do` | Roleplay scene description with optional 3D text |
+| `/try` | Server-randomized success/failure roleplay action |
+| `/ad` | Paid advertisement |
+| `/staff` | ACE-restricted staff chat |
+| `/jobchat` | Current job-only chat |
+| `/gangchat` | Current gang-only chat |
+| `/pm [id] [message]` | Private message |
+| `/reply [message]` | Reply to the last PM peer |
+| `/clear` | Clear local chat |
+| `/clearall` | Clear all clients; staff permission required |
+| `/chatmute [id] [minutes] [reason]` | Staff mute |
+| `/chatunmute [id]` | Remove a staff mute |
 
-Example external provider:
+Organization commands such as `/police`, `/ambulance`, `/mechanic`, `/ballas` and `/vagos` remain configuration-driven in `config/organizations.lua`.
+
+## Configuration files
+
+- `config/shared.lua` — framework, UI, routing, proximity, typing and auto messages.
+- `config/themes.lua` — UI themes and message presentation themes.
+- `config/channels.lua` — built-in channel behavior, commands, scopes, cooldowns and prices.
+- `config/organizations.lua` — job/gang announcement commands and banners.
+- `config/security.lua` — ACE nodes, rate limits, filters and mute limits.
+- `config/logging.lua` — console and queued Discord logs.
+- `locales/en.lua` and `locales/tl.lua` — localized messages.
+
+See `docs/CONFIGURATION.md` for examples and `docs/MIGRATION_V2.md` before upgrading an existing installation.
+
+## ESX gang provider
+
+ESX does not have one universal gang format. Configure `Config.FrameworkOptions.ESX.GangProvider`:
 
 ```lua
 GangProvider = {
-    Mode = 'export',
-    Resource = 'your_gang_resource',
-    Export = 'GetPlayerGang'
+    Mode = 'job2', -- disabled | job | job2 | metadata | export
+    MetadataKey = 'gang',
+    Resource = '',
+    Export = ''
 }
 ```
 
-The export should return a table shaped like:
+An external provider should return:
 
 ```lua
 {
@@ -57,45 +102,50 @@ The export should return a table shaped like:
 }
 ```
 
-## Permissions
+## Stock chat compatibility
 
-```cfg
-add_ace group.admin dex_chat.staff allow
-add_ace group.admin dex_chat.cooldown.bypass allow
+Client events/exports:
+
+- `chatMessage`
+- `chat:addMessage`
+- `chat:addSuggestion`
+- `chat:addSuggestions`
+- `chat:removeSuggestion`
+- `chat:addTemplate`
+- `chat:clear`
+- `chat:addMode`
+- `chat:removeMode`
+- `exports.chat:addMessage`
+- `exports.chat:addSuggestion`
+
+Server events/exports:
+
+- `_chat:messageEntered`
+- `chat:init`
+- `chat:addMessage` from server context
+- `__cfx_internal:commandFallback`
+- `exports.chat:addMessage`
+- `exports.chat:registerMessageHook`
+- `exports.chat:registerMode`
+
+Raw template HTML is retained only for API compatibility and is never inserted into the DOM.
+
+## Validation
+
+Run from the resource root with Lua 5.4:
+
+```bash
+lua5.4 tests/lua/sanitizer_spec.lua
+lua5.4 tests/lua/config_spec.lua
 ```
 
-`/clearall` requires `dex_chat.staff` unless used from the server console.
+The GitHub Actions workflow runs these checks automatically.
 
-## Commands
+## Important behavior
 
-```text
-/ballas [message]
-/vagos [message]
-/police [message]
-/pd [message]
-/lspd [message]
-/ambulance [message]
-/ems [message]
-/mechanic [message]
-/mech [message]
-/ooc [message]
-/clear
-/clearall
-/toggleChat
-```
-
-## Custom logos
-
-Add image files inside `web/dist/images/`, include them in `fxmanifest.lua`, then set for example:
-
-```lua
-logo = 'images/gangs/ballas.webp'
-```
-
-The banner automatically falls back to the configured short label when an image is missing.
-
-## Development policy
-
-The production-ready NUI is committed under `web/dist/`, so no Node runtime or build step is needed on the game server.
-
-See [Requirement.md](Requirement.md), [Design.md](Design.md), and [Task.md](Task.md) for the full roadmap and architecture.
+- Player identity, job, gang, grade, duty, bucket, recipients, cooldowns and presentation are determined by the server.
+- Webhook URLs remain server-only.
+- Remote organization logos are rejected by the UI; use local files under `web/dist/images/`.
+- Private messages are same-bucket by default.
+- Staff mutes are in-memory and reset when the resource/server restarts.
+- Database-backed history is intentionally not enabled by default.
